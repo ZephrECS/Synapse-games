@@ -62,10 +62,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .ob-topt:hover{border-color:var(--border2);color:var(--text);background:rgba(255,255,255,0.05);}
 .ob-topt.sel{border-color:var(--accent);color:var(--text);background:rgba(124,107,255,.12);box-shadow:0 0 12px rgba(124,107,255,0.15),inset 0 1px 0 rgba(255,255,255,0.07);}
 .ob-swatch{width:18px;height:18px;border-radius:5px;flex-shrink:0;}
-.ob-exp-row{display:flex;gap:8px;}
-.ob-exp-opt{flex:1;padding:10px 14px;border-radius:12px;border:2px solid var(--border);background:rgba(255,255,255,0.03);cursor:pointer;font-size:12px;font-weight:500;display:flex;align-items:center;justify-content:center;gap:7px;color:var(--muted2);transition:all .2s var(--ease);}
-.ob-exp-opt:hover{border-color:var(--border2);color:var(--text);}
-.ob-exp-opt.sel{border-color:var(--accent);color:var(--text);background:rgba(124,107,255,.12);}
 .ob-actions{display:flex;flex-direction:column;align-items:center;gap:10px;padding-top:4px;}
 .ob-btn{width:100%;padding:13px;border-radius:13px;background:linear-gradient(135deg,var(--accent),#5b4dd6);border:none;color:white;font-size:14px;font-weight:600;font-family:var(--font);cursor:pointer;letter-spacing:.02em;transition:all .22s;box-shadow:0 4px 20px rgba(124,107,255,0.35),inset 0 1px 0 rgba(255,255,255,0.15);}
 .ob-btn:hover{opacity:.9;transform:translateY(-2px);box-shadow:0 10px 32px rgba(124,107,255,.5);}
@@ -75,51 +71,156 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .ob-unfield:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(124,107,255,.12),inset 0 0 20px rgba(124,107,255,0.03);}
 .ob-unfield::placeholder{color:var(--muted);}
 
-/* ── HUD ── */
-#hud-wrap{position:fixed;top:0;left:0;right:0;height:110px;display:flex;align-items:flex-start;justify-content:center;pointer-events:none;z-index:2500;padding-top:16px;overflow:visible;}
-#hud{position:relative;pointer-events:all;height:var(--hud-h);min-width:580px;max-width:min(860px,calc(100vw - 32px));border-radius:999px;
-  background: rgba(12,12,24,0.36);
-  backdrop-filter: blur(44px) saturate(1.9) brightness(1.14);
-  -webkit-backdrop-filter: blur(44px) saturate(1.9) brightness(1.14);
-  border: 1px solid rgba(255,255,255,0.09);
+/* ── HUD — Enhanced Translucent Pill ── */
+#hud-wrap{
+  position:fixed;top:0;left:0;right:0;
+  height:110px;
+  display:flex;align-items:flex-start;justify-content:center;
+  pointer-events:none;z-index:2500;
+  padding-top:14px;overflow:visible;
+}
+
+/* Soft ambient glow behind the pill */
+#hud-wrap::before{
+  content:'';
+  position:absolute;
+  top:0;left:50%;transform:translateX(-50%);
+  width:min(660px,80vw);height:80px;
+  background:radial-gradient(ellipse at 50% 0%, rgba(124,107,255,0.13) 0%, transparent 70%);
+  pointer-events:none;
+  z-index:0;
+}
+
+#hud{
+  position:relative;
+  pointer-events:all;
+  height:var(--hud-h);
+  min-width:580px;
+  max-width:min(860px,calc(100vw - 32px));
+  border-radius:999px;
+  z-index:1;
+
+  /* True translucent glass — layers of blur + tint */
+  background:
+    linear-gradient(
+      160deg,
+      rgba(255,255,255,0.055) 0%,
+      rgba(124,107,255,0.04) 40%,
+      rgba(255,255,255,0.025) 100%
+    );
+  backdrop-filter: blur(48px) saturate(2.2) brightness(1.18);
+  -webkit-backdrop-filter: blur(48px) saturate(2.2) brightness(1.18);
+
+  /* Layered border: top highlight + subtle accent glow */
+  border: 1px solid rgba(255,255,255,0.10);
   box-shadow:
-    0 0 0 1px rgba(124,107,255,.08),
-    inset 0 1px 0 rgba(255,255,255,0.08),
-    inset 0 -1px 0 rgba(0,0,0,0.2),
-    0 8px 40px rgba(0,0,0,.45),
-    0 2px 12px rgba(0,0,0,.3);
+    /* Top specular highlight */
+    inset 0 1px 0 rgba(255,255,255,0.13),
+    /* Bottom inner shadow for depth */
+    inset 0 -1px 0 rgba(0,0,0,0.18),
+    /* Soft left/right rim */
+    inset 1px 0 0 rgba(255,255,255,0.04),
+    inset -1px 0 0 rgba(255,255,255,0.04),
+    /* Outer accent glow */
+    0 0 0 1px rgba(124,107,255,0.10),
+    /* Drop shadow with purple tint */
+    0 8px 32px rgba(0,0,0,0.38),
+    0 2px 8px rgba(0,0,0,0.22),
+    0 24px 48px rgba(124,107,255,0.06);
+
   display:flex;align-items:center;padding:0 8px;gap:2px;
   transition:transform .45s var(--spring),opacity .35s var(--ease),max-width .4s var(--ease);
   animation:hudDrop .65s var(--spring) both;
 }
+
+/* Subtle noise texture overlay for depth */
+#hud::after{
+  content:'';
+  position:absolute;inset:0;border-radius:999px;
+  background:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E");
+  pointer-events:none;
+  opacity:0.5;
+  mix-blend-mode:overlay;
+}
+
 @keyframes hudDrop{from{opacity:0;transform:translateY(-24px) scale(.94);}to{opacity:1;transform:translateY(0) scale(1);}}
 #hud-wrap{transition:transform .46s var(--spring),opacity .34s var(--ease);}
 #hud-wrap.minimized{transform:translateY(-150px);opacity:0;pointer-events:none;}
-.hud-logo{font-family:'Ubuntu',sans-serif;font-weight:700;font-style:italic;font-size:19px;letter-spacing:-.5px;background:linear-gradient(135deg,#fff 15%,var(--accent3) 55%,var(--accent2) 80%,#67e8f9 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;padding:0 10px 0 12px;user-select:none;flex-shrink:0;position:relative;filter:drop-shadow(0 0 8px rgba(124,107,255,0.5));}
-.hud-logo::after{content:'';position:absolute;right:0;top:50%;transform:translateY(-50%);width:1px;height:22px;background:linear-gradient(180deg,transparent,rgba(255,255,255,.1),transparent);}
+
+.hud-logo{
+  font-family:'Ubuntu',sans-serif;font-weight:700;font-style:italic;
+  font-size:19px;letter-spacing:-.5px;
+  background:linear-gradient(135deg,rgba(255,255,255,0.95) 15%,var(--accent3) 55%,var(--accent2) 80%,#67e8f9 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  padding:0 10px 0 12px;user-select:none;flex-shrink:0;position:relative;
+  filter:drop-shadow(0 0 10px rgba(124,107,255,0.55));
+}
+.hud-logo::after{
+  content:'';position:absolute;right:0;top:50%;transform:translateY(-50%);
+  width:1px;height:22px;
+  background:linear-gradient(180deg,transparent,rgba(255,255,255,0.12),transparent);
+}
+
 .hud-nav{display:flex;align-items:center;gap:1px;flex:1;padding:0 6px;}
-.hud-btn{position:relative;display:flex;align-items:center;gap:7px;padding:7px 14px;border-radius:999px;border:none;background:transparent;color:var(--muted2);font-size:12.5px;font-weight:500;font-family:var(--font);cursor:pointer;white-space:nowrap;transition:color .22s var(--ease);outline:none;-webkit-tap-highlight-color:transparent;}
+
+.hud-btn{
+  position:relative;display:flex;align-items:center;gap:7px;
+  padding:7px 14px;border-radius:999px;border:none;
+  background:transparent;
+  color:rgba(255,255,255,0.45);
+  font-size:12.5px;font-weight:500;font-family:var(--font);
+  cursor:pointer;white-space:nowrap;
+  transition:color .22s var(--ease);
+  outline:none;-webkit-tap-highlight-color:transparent;
+}
 .hud-btn svg{width:14px;height:14px;flex-shrink:0;transition:transform .22s var(--spring);}
-.hud-btn:hover{color:var(--text);}
+.hud-btn:hover{color:rgba(255,255,255,0.9);}
 .hud-btn:hover svg{transform:scale(1.12);}
-.hud-btn::before{content:'';position:absolute;inset:0;border-radius:999px;background:rgba(255,255,255,0);border:1px solid transparent;transition:background .28s var(--ease),border-color .28s var(--ease),box-shadow .28s var(--ease);}
-.hud-btn:hover::before{background:rgba(255,255,255,.06);}
+.hud-btn::before{
+  content:'';position:absolute;inset:0;border-radius:999px;
+  background:rgba(255,255,255,0);
+  border:1px solid transparent;
+  transition:background .28s var(--ease),border-color .28s var(--ease),box-shadow .28s var(--ease);
+}
+.hud-btn:hover::before{
+  background:rgba(255,255,255,0.07);
+  border-color:rgba(255,255,255,0.08);
+}
 .hud-btn.active{color:var(--accent2);}
 .hud-btn.active::before{
-  background: rgba(124,107,255,0.16);
-  border-color: rgba(124,107,255,.3);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+  background: rgba(124,107,255,0.18);
+  border-color: rgba(124,107,255,.32);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.10),
+    0 0 12px rgba(124,107,255,0.12);
   animation:inkPop .32s var(--spring) both;
 }
 @keyframes inkPop{0%{transform:scale(.55);opacity:0;}65%{transform:scale(1.04);opacity:1;}100%{transform:scale(1);}}
-.hud-sep{width:1px;height:20px;background:linear-gradient(180deg,transparent,rgba(255,255,255,.08),transparent);flex-shrink:0;margin:0 4px;}
+
+.hud-sep{
+  width:1px;height:20px;flex-shrink:0;margin:0 4px;
+  background:linear-gradient(180deg,transparent,rgba(255,255,255,0.10),transparent);
+}
+
 .hud-right{display:flex;align-items:center;gap:3px;padding-right:6px;}
-.hud-icon-btn{width:36px;height:36px;border-radius:50%;border:none;background:transparent;color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .2s var(--ease),color .2s var(--ease),transform .18s var(--ease);flex-shrink:0;}
+.hud-icon-btn{
+  width:36px;height:36px;border-radius:50%;border:none;
+  background:transparent;
+  color:rgba(255,255,255,0.38);
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:background .2s var(--ease),color .2s var(--ease),transform .18s var(--ease);
+  flex-shrink:0;
+}
 .hud-icon-btn svg{width:15px;height:15px;}
-.hud-icon-btn:hover{background:rgba(255,255,255,.08);color:var(--text);transform:scale(1.08);}
+.hud-icon-btn:hover{
+  background:rgba(255,255,255,0.09);
+  color:rgba(255,255,255,0.9);
+  transform:scale(1.08);
+}
 .hud-icon-btn:active{transform:scale(.9);}
 .hud-icon-btn.active{color:var(--accent2);}
 #panicBtn:hover{color:#f87171;background:rgba(239,68,68,.14);}
+
 .hud-game-controls{display:none;align-items:center;gap:4px;padding:0 4px;overflow:hidden;max-width:0;opacity:0;transition:max-width .4s var(--ease),opacity .3s var(--ease),padding .4s var(--ease);}
 .hud-game-controls.visible{display:flex;max-width:260px;opacity:1;padding:0 4px;}
 .hud-game-controls.visible .hud-gc-btn{animation:gcSlide .38s var(--spring) both;}
@@ -128,12 +229,14 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 @keyframes gcSlide{from{opacity:0;transform:translateX(14px) scale(.85);}to{opacity:1;transform:none;}}
 .hud-gc-btn{display:flex;align-items:center;gap:6px;padding:6px 13px;border-radius:999px;border:none;font-size:11.5px;font-weight:600;font-family:var(--font);cursor:pointer;white-space:nowrap;transition:all .22s var(--ease);flex-shrink:0;}
 .hud-gc-btn svg{width:13px;height:13px;flex-shrink:0;}
-.gc-fs{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:var(--muted2);}
-.gc-fs:hover{background:rgba(255,255,255,.12);color:var(--text);transform:scale(1.04);}
+.gc-fs{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,0.7);}
+.gc-fs:hover{background:rgba(255,255,255,.13);color:var(--text);transform:scale(1.04);}
 .gc-close{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.22);color:#fca5a5;}
 .gc-close:hover{background:rgba(239,68,68,.22);border-color:rgba(239,68,68,.45);transform:scale(1.04);}
+
 .hud-online-dot{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 8px rgba(34,197,94,.8);flex-shrink:0;animation:pulseGreen 2.5s ease-in-out infinite;margin-right:2px;}
 @keyframes pulseGreen{0%,100%{box-shadow:0 0 5px rgba(34,197,94,.6);opacity:.8;}50%{box-shadow:0 0 12px rgba(34,197,94,1);opacity:1;}}
+
 #hud-tab{position:fixed;top:0;left:50%;transform:translateX(-50%) translateY(-100%);z-index:2501;pointer-events:none;opacity:0;transition:transform .42s var(--spring),opacity .32s var(--ease);}
 #hud-tab.visible{transform:translateX(-50%) translateY(0);opacity:1;pointer-events:all;}
 .hud-tab-inner{display:flex;align-items:center;gap:7px;padding:7px 18px 9px;background:rgba(10,10,22,0.7);border:1px solid rgba(255,255,255,.08);border-top:none;border-radius:0 0 18px 18px;backdrop-filter:blur(28px);cursor:pointer;font-size:11.5px;font-weight:600;color:var(--accent2);font-family:var(--font);letter-spacing:.04em;box-shadow:0 8px 28px rgba(0,0,0,.45);transition:background .2s var(--ease),color .2s var(--ease);user-select:none;}
@@ -301,14 +404,52 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .toast{position:fixed;bottom:60px;right:20px;z-index:9000;border-radius:12px;padding:10px 18px;font-size:12px;color:var(--text);transform:translateY(16px);opacity:0;transition:all .3s var(--spring);pointer-events:none;font-weight:500;}
 .toast.show{opacity:1;transform:translateY(0);}
 
-/* PROXY */
-.proxy-input{width:100%;padding:12px 16px 12px 46px;border-radius:13px;color:var(--text);font-size:14px;font-family:var(--font);outline:none;transition:border .22s,box-shadow .22s;background:rgba(255,255,255,0.04);border:1.5px solid var(--border);backdrop-filter:blur(12px);}
-.proxy-input:focus{border-color:rgba(124,107,255,0.5);box-shadow:0 0 0 3px rgba(124,107,255,.1);}
-
 /* GAMES LOADING */
 .games-loading{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:80px 0;color:var(--muted);grid-column:1/-1;}
 .games-loading-ring{width:36px;height:36px;border-radius:50%;border:2px solid rgba(124,107,255,.15);border-top-color:var(--accent2);animation:spin .85s linear infinite;}
 .games-loading p{font-size:13px;font-family:var(--mono);letter-spacing:.08em;}
+
+/* GAME STATS — playtime badges on cards */
+.gc-playtime{
+  position:absolute;top:9px;left:9px;
+  padding:3px 8px;border-radius:99px;
+  background:rgba(0,0,0,0.55);
+  backdrop-filter:blur(10px);
+  border:1px solid rgba(255,255,255,0.10);
+  font-size:9px;font-family:var(--mono);
+  color:rgba(255,255,255,0.6);
+  pointer-events:none;z-index:6;
+  opacity:0;transform:translateY(-3px);
+  transition:opacity .22s var(--ease),transform .22s var(--ease);
+}
+.game-card:hover .gc-playtime{opacity:1;transform:translateY(0);}
+.gc-playtime.has-time{color:var(--accent3);border-color:rgba(124,107,255,0.25);background:rgba(0,0,0,0.65);}
+
+/* STATS section in account */
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;}
+.stat-card{border-radius:12px;padding:12px 14px;background:rgba(124,107,255,0.06);border:1px solid rgba(124,107,255,0.12);}
+.stat-card-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;font-family:var(--mono);margin-bottom:4px;}
+.stat-card-value{font-size:18px;font-weight:700;font-family:'Ubuntu',sans-serif;background:linear-gradient(135deg,#fff,var(--accent3));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.stat-card-sub{font-size:10px;color:var(--muted2);margin-top:2px;}
+
+/* Recent games list in account */
+.recent-game-row{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:11px;cursor:pointer;transition:background .18s;}
+.recent-game-row:hover{background:rgba(255,255,255,0.04);}
+.recent-game-thumb{width:36px;height:36px;border-radius:8px;object-fit:cover;flex-shrink:0;background:var(--bg3);}
+.recent-game-info{flex:1;min-width:0;}
+.recent-game-title{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.recent-game-meta{font-size:10px;color:var(--muted2);font-family:var(--mono);margin-top:1px;}
+.recent-game-time{font-size:11px;color:var(--accent2);font-family:var(--mono);flex-shrink:0;}
+
+/* Library panel playtime badge */
+.lib-playtime-badge{
+  font-size:9px;font-family:var(--mono);
+  color:var(--accent2);
+  background:rgba(124,107,255,0.12);
+  border:1px solid rgba(124,107,255,0.2);
+  border-radius:99px;padding:2px 7px;
+  white-space:nowrap;
+}
 </style>
 </head>
 <body>
@@ -330,19 +471,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
       <div class="ob-row">
         <div class="ob-row-label">Theme</div>
         <div class="ob-theme-grid" id="ob-theme-grid"></div>
-      </div>
-      <div class="ob-row">
-        <div class="ob-row-label">Experience</div>
-        <div class="ob-exp-row">
-          <div class="ob-exp-opt sel" id="exp-games" onclick="selectExp('games')">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="14" rx="3"/><path d="M6 13h4m-2-2v4"/><circle cx="16" cy="12" r=".8" fill="currentColor"/><circle cx="18" cy="14" r=".8" fill="currentColor"/></svg>
-            Games Only
-          </div>
-          <div class="ob-exp-opt" id="exp-full" onclick="selectExp('full')">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 010 20"/></svg>
-            Games &amp; Proxy
-          </div>
-        </div>
       </div>
       <div class="ob-actions">
         <button class="ob-btn" onclick="finishOnboarding()">Enter Synapse</button>
@@ -369,10 +497,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
         Library
       </button>
-      <button class="hud-btn" id="navProxy" data-tab="proxy" style="display:none;">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 010 20M12 2a15.3 15.3 0 000 20"/></svg>
-        Proxy
-      </button>
     </div>
     <div class="hud-game-controls" id="hudGameControls">
       <button class="hud-gc-btn gc-fs" id="gcFsBtn" onclick="gcToggleFullscreen()">
@@ -391,7 +515,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
     <div class="hud-sep"></div>
     <div class="hud-right">
       <div class="hud-online-dot"></div>
-      <span id="hudOnlineTxt" style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-right:6px;">—</span>
+      <span id="hudOnlineTxt" style="font-size:11px;color:rgba(255,255,255,0.32);font-family:var(--mono);margin-right:6px;">—</span>
       <button class="hud-icon-btn" data-tab="account" title="Account">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
       </button>
@@ -416,7 +540,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 </div>
 
 <div id="game-frame-wrap">
-  <iframe id="game-iframe" src="about:blank" sandbox="allow-scripts allow-same-origin allow-forms allow-pointer-lock"></iframe>
+  <iframe id="game-iframe" src="about:blank" sandbox="allow-scripts allow-same-origin allow-forms allow-pointer-lock allow-fullscreen" allowfullscreen></iframe>
 </div>
 
 <!-- MAIN -->
@@ -444,24 +568,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
     <div class="lib-panel-grid" id="libPanelGrid"></div>
   </div>
 
-  <div class="panel" id="panel-proxy">
-    <div style="height:calc(100vh - 100px);display:flex;flex-direction:column;gap:12px;">
-      <div style="display:flex;gap:10px;">
-        <div style="position:relative;flex:1;">
-          <span class="s-ico" style="top:50%;transform:translateY(-50%);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg></span>
-          <input class="proxy-input" id="proxyInput" placeholder="Enter URL or search..." onkeydown="proxyKey(event)">
-        </div>
-        <button onclick="goProxy()" style="padding:12px 22px;background:linear-gradient(135deg,var(--accent),#5b4dd6);border:none;border-radius:13px;color:white;font-size:13px;font-family:var(--font);font-weight:600;cursor:pointer;box-shadow:0 4px 16px rgba(124,107,255,0.3);">Go</button>
-      </div>
-      <div style="flex:1;border-radius:18px;overflow:hidden;border:1px solid var(--border);background:rgba(8,8,20,0.6);position:relative;min-height:0;backdrop-filter:blur(20px);" id="proxyWrap">
-        <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:var(--muted);">
-          <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" opacity=".14"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 010 20"/></svg>
-          <p style="font-size:13px;">Enter a URL to start browsing</p>
-        </div>
-      </div>
-    </div>
-  </div>
-
   <div class="panel" id="panel-account">
     <div class="acct-wrap">
       <div class="acct-card holo-panel">
@@ -479,6 +585,17 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
             <button class="btn-mute" style="flex:1;" onclick="exportData()">⬇ Export Data</button>
             <button class="btn-mute" style="flex:1;" onclick="acctLogout()">Sign Out</button>
           </div>
+        </div>
+        <div style="width:100%;border-top:1px solid var(--border);padding-top:18px;margin-top:2px;">
+          <div style="font-size:13px;font-weight:600;margin-bottom:10px;">Play Stats</div>
+          <div class="stats-grid" id="acctStatsGrid">
+            <div class="stat-card"><div class="stat-card-label">Total Time</div><div class="stat-card-value" id="statTotalTime">0m</div></div>
+            <div class="stat-card"><div class="stat-card-label">Games Played</div><div class="stat-card-value" id="statGamesPlayed">0</div></div>
+          </div>
+        </div>
+        <div style="width:100%;border-top:1px solid var(--border);padding-top:18px;margin-top:4px;">
+          <div style="font-size:13px;font-weight:600;margin-bottom:8px;">Recently Played</div>
+          <div id="acctRecentGames"><div style="font-size:12px;color:var(--muted);padding:8px 0;">No games played yet.</div></div>
         </div>
         <div style="width:100%;border-top:1px solid var(--border);padding-top:18px;margin-top:2px;">
           <div style="font-size:13px;font-weight:600;margin-bottom:3px;">Saved Games</div>
@@ -529,7 +646,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
           <div class="s-sec-sub" style="margin-bottom:14px;">Version &amp; details</div>
           <div style="display:flex;flex-direction:column;gap:9px;font-size:13px;color:var(--muted2);font-family:var(--mono);">
             <div style="display:flex;justify-content:space-between;"><span>version</span><span style="color:var(--text);">v2.2.0</span></div>
-            <div style="display:flex;justify-content:space-between;"><span>experience</span><span style="color:var(--text);" id="infoExp">—</span></div>
             <div style="display:flex;justify-content:space-between;"><span>theme</span><span style="color:var(--accent2);" id="infoTheme">—</span></div>
             <div style="display:flex;justify-content:space-between;"><span>games</span><span style="color:var(--text);" id="infoGames">—</span></div>
           </div>
@@ -789,11 +905,65 @@ resizeBg(); initBgParticles(); drawBg(); buildBgSwitcher();
 /* ═══════════════════════════════════════════════════════
    STATE
 ═══════════════════════════════════════════════════════ */
-let state = { username:null, theme:'default', bgEffect:0, panicKey:'`', panicUrl:'https://www.google.com', experience:'games', onboarded:false, library:[] };
+let state = { username:null, theme:'default', bgEffect:0, panicKey:'`', panicUrl:'https://www.google.com', onboarded:false, library:[] };
 function persist() { localStorage.setItem('syn5', JSON.stringify(state)); }
 function restore() {
   try { const s=localStorage.getItem('syn5'); if(s){const p=JSON.parse(s);Object.assign(state,p);if(!state.library)state.library=[];} } catch(e){}
   try { if(!localStorage.getItem('syn5')&&localStorage.getItem('syn4')){const p=JSON.parse(localStorage.getItem('syn4'));Object.assign(state,p);if(!state.library)state.library=[];} } catch(e){}
+}
+
+/* ═══════════════════════════════════════════════════════
+   GAME DATA — per-game localStorage stats
+   Key format: syn_gd_<username|"guest">_<gameIdx>
+   Each record: { playCount, totalSecs, lastPlayed }
+═══════════════════════════════════════════════════════ */
+function gdKey(idx){ return `syn_gd_${state.username||'guest'}_${idx}`; }
+function gdGet(idx){ try{ const r=localStorage.getItem(gdKey(idx)); return r?JSON.parse(r):null; }catch(e){return null;} }
+function gdSet(idx,data){ try{ localStorage.setItem(gdKey(idx),JSON.stringify(data)); }catch(e){} }
+
+function gdFormatTime(secs){
+  if(!secs||secs<60) return secs?`${secs}s`:'—';
+  const h=Math.floor(secs/3600), m=Math.floor((secs%3600)/60);
+  return h>0?`${h}h ${m}m`:`${m}m`;
+}
+function gdFormatDate(iso){
+  if(!iso) return '';
+  const d=new Date(iso), now=new Date();
+  const diff=Math.floor((now-d)/864e5);
+  if(diff===0) return 'today';
+  if(diff===1) return 'yesterday';
+  if(diff<7) return `${diff}d ago`;
+  return d.toLocaleDateString(undefined,{month:'short',day:'numeric'});
+}
+
+// Session tracking
+let _gdActiveIdx = null;
+let _gdSessionStart = null;
+
+function gdStartSession(idx){
+  _gdActiveIdx = idx;
+  _gdSessionStart = Date.now();
+}
+function gdEndSession(){
+  if(_gdActiveIdx===null || !_gdSessionStart) return;
+  const secs = Math.floor((Date.now()-_gdSessionStart)/1000);
+  if(secs<2){ _gdActiveIdx=null;_gdSessionStart=null; return; } // ignore accidental opens
+  const existing = gdGet(_gdActiveIdx)||{playCount:0,totalSecs:0,lastPlayed:null};
+  existing.playCount = (existing.playCount||0)+1;
+  existing.totalSecs = (existing.totalSecs||0)+secs;
+  existing.lastPlayed = new Date().toISOString();
+  gdSet(_gdActiveIdx, existing);
+  _gdActiveIdx=null; _gdSessionStart=null;
+}
+
+// All game stats for the current user
+function gdAllStats(){
+  const out=[];
+  GAMES.forEach((g,i)=>{
+    const d=gdGet(i);
+    if(d&&d.playCount>0) out.push({idx:i,game:g,...d});
+  });
+  return out.sort((a,b)=>new Date(b.lastPlayed)-new Date(a.lastPlayed));
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -869,8 +1039,12 @@ function renderGames(){
   if(!list.length){document.getElementById('gamesGrid').innerHTML='<div style="grid-column:1/-1;color:var(--muted);text-align:center;padding:60px 0;font-size:13px;">No games in this category.</div>';return;}
   document.getElementById('gamesGrid').innerHTML=list.map(g=>{
     const idx=GAMES.indexOf(g), saved=isInLibrary(idx);
+    const gd=gdGet(idx);
+    const timeLabel=gd&&gd.totalSecs?gdFormatTime(gd.totalSecs):'';
+    const hasTime=!!timeLabel;
     return `<div class="game-card" data-idx="${idx}">
       <div class="gc-bg">${g.image?`<img class="gc-img" src="${g.image}" alt="${g.title}" onerror="this.parentElement.innerHTML='<div class=gc-placeholder>🎮</div>'">`:`<div class="gc-placeholder">🎮</div>`}</div>
+      <div class="gc-playtime ${hasTime?'has-time':''}">${hasTime?'⏱ '+timeLabel:'Not played'}</div>
       <div class="gc-label">${g.tag?`<div class="gc-tag">${g.tag}</div>`:''}<div>${g.title}</div></div>
       <button class="gc-save-btn ${saved?'saved':''}" title="${saved?'Saved!':'Save'}" onclick="event.stopPropagation();cardToggleLib(${idx},this)">
         ${saved?'<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>':'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>'}
@@ -897,9 +1071,64 @@ function cardToggleLib(idx,btn){
   }
   persist();renderLibraryPanel();renderLibrary();
 }
-function clickGame(idx){const g=GAMES[idx];if(g)launchGame(g.url,g.title);}
+function clickGame(idx){const g=GAMES[idx];if(g)launchGame(idx,g.url,g.title);}
 
-async function launchGame(url,title){
+/* Build the localStorage shim script for a given game index.
+   All reads/writes inside the iframe get transparently redirected
+   to Synapse's localStorage under namespaced keys:
+   syn_gsave_<user|guest>_<idx>_<originalKey>
+   The shim also patches sessionStorage the same way so games
+   that use it don't silently lose data either. */
+function buildStorageShim(idx){
+  const ns = `syn_gsave_${state.username||'guest'}_${idx}_`;
+  return `<script>
+(function(){
+  var NS = ${JSON.stringify(ns)};
+  var _raw = window.localStorage || {};
+
+  function shimStorage(target){
+    var store = {
+      getItem: function(k){ return localStorage.getItem(NS+k); },
+      setItem: function(k,v){ try{ localStorage.setItem(NS+k,String(v)); }catch(e){} },
+      removeItem: function(k){ localStorage.removeItem(NS+k); },
+      clear: function(){
+        Object.keys(localStorage).filter(function(k){ return k.indexOf(NS)===0; })
+          .forEach(function(k){ localStorage.removeItem(k); });
+      },
+      key: function(n){
+        var keys=Object.keys(localStorage).filter(function(k){ return k.indexOf(NS)===0; });
+        return keys[n]?keys[n].slice(NS.length):null;
+      },
+      get length(){
+        return Object.keys(localStorage).filter(function(k){ return k.indexOf(NS)===0; }).length;
+      }
+    };
+    // Proxy property access (game[ls] = value style)
+    try{
+      return new Proxy(store,{
+        get: function(t,p){
+          if(p in t) return typeof t[p]==='function'?t[p].bind(t):t[p];
+          return localStorage.getItem(NS+p);
+        },
+        set: function(t,p,v){
+          if(p in t){ t[p]=v; return true; }
+          try{ localStorage.setItem(NS+p,String(v)); }catch(e){}
+          return true;
+        },
+        deleteProperty: function(t,p){
+          localStorage.removeItem(NS+p); return true;
+        }
+      });
+    }catch(e){ return store; }
+  }
+
+  try{ Object.defineProperty(window,'localStorage',{get:function(){ return shimStorage(); },configurable:true}); }catch(e){}
+  try{ Object.defineProperty(window,'sessionStorage',{get:function(){ return shimStorage(); },configurable:true}); }catch(e){}
+})();
+<\/script>`;
+}
+
+async function launchGame(idx,url,title){
   const ov=document.createElement('div');ov.className='game-launch-ov';
   ov.innerHTML=`<div class="launch-spinner-ring"></div><div class="launch-title">${title||'Loading...'}</div><div class="launch-sub">Preparing game</div>`;
   document.body.appendChild(ov);
@@ -911,8 +1140,32 @@ async function launchGame(url,title){
     ov.classList.add('out');setTimeout(()=>ov.remove(),280);
     const wrap=document.getElementById('game-frame-wrap'),iframe=document.getElementById('game-iframe');
     wrap.classList.add('active');
-    if(url.endsWith('.txt')||isBareUrl){iframe.src=trimmed;}
-    else{iframe.contentDocument.open();iframe.contentDocument.write(code);iframe.contentDocument.close();}
+
+    if(url.endsWith('.txt')||isBareUrl){
+      // Bare URL game — load it inside a thin wrapper page that injects the shim
+      // via postMessage + eval before the inner page loads. Since we can't inject
+      // into a cross-origin page directly, we load it inside a nested iframe inside
+      // our shim page (same-origin blob), which overrides localStorage on the outer
+      // document that the game sees when loaded via blob:.
+      //
+      // For these games, just load directly — their origin persists naturally.
+      iframe.src=trimmed;
+    } else {
+      // Inline HTML game — inject shim as very first thing in <head> or <body>
+      const shim = buildStorageShim(idx);
+      // Try to inject after <head> open tag, fall back to prepend before everything
+      if(/<head[\s>]/i.test(code)){
+        code = code.replace(/(<head[^>]*>)/i, '$1\n'+shim);
+      } else if(/<html[\s>]/i.test(code)){
+        code = code.replace(/(<html[^>]*>)/i, '$1\n'+shim);
+      } else {
+        code = shim + '\n' + code;
+      }
+      iframe.contentDocument.open();
+      iframe.contentDocument.write(code);
+      iframe.contentDocument.close();
+    }
+    gdStartSession(idx);
     showGameControls();
   }catch(e){ov.classList.add('out');setTimeout(()=>ov.remove(),280);showToast('⚠ Failed to load game');}
 }
@@ -928,17 +1181,39 @@ function hideGameControls(){
   setTimeout(()=>{ctrl.style.display='none';},420);
 }
 function gcToggleFullscreen(){
-  const wrap=document.getElementById('game-frame-wrap');
+  const iframe=document.getElementById('game-iframe');
   const icon=document.getElementById('gcFsIcon'),txt=document.getElementById('gcFsTxt');
-  if(!isFullscreen){wrap.requestFullscreen?.();isFullscreen=true;icon.innerHTML='<path d="M8 3v3a2 2 0 01-2 2H3m18 0h-3a2 2 0 01-2-2V3m0 18v-3a2 2 0 012-2h3M3 16h3a2 2 0 012 2v3"/>';txt.textContent='Exit Full';}
-  else{document.exitFullscreen?.();isFullscreen=false;icon.innerHTML='<path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"/>';txt.textContent='Fullscreen';}
+  if(!isFullscreen){
+    // Request fullscreen on the iframe itself so the game gets true full viewport
+    (iframe.requestFullscreen||iframe.webkitRequestFullscreen||iframe.mozRequestFullScreen||iframe.msRequestFullscreen).call(iframe);
+    isFullscreen=true;
+    icon.innerHTML='<path d="M8 3v3a2 2 0 01-2 2H3m18 0h-3a2 2 0 01-2-2V3m0 18v-3a2 2 0 012-2h3M3 16h3a2 2 0 012 2v3"/>';
+    txt.textContent='Exit Full';
+  } else {
+    (document.exitFullscreen||document.webkitExitFullscreen||document.mozCancelFullScreen||document.msExitFullscreen).call(document);
+    isFullscreen=false;
+    icon.innerHTML='<path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"/>';
+    txt.textContent='Fullscreen';
+  }
 }
-document.addEventListener('fullscreenchange',()=>{if(!document.fullscreenElement&&isFullscreen){isFullscreen=false;document.getElementById('gcFsIcon').innerHTML='<path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"/>';document.getElementById('gcFsTxt').textContent='Fullscreen';}});
+document.addEventListener('fullscreenchange',()=>{
+  if(!document.fullscreenElement&&isFullscreen){
+    isFullscreen=false;
+    document.getElementById('gcFsIcon').innerHTML='<path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"/>';
+    document.getElementById('gcFsTxt').textContent='Fullscreen';
+  }
+});
 function exitGame(){
   const wrap=document.getElementById('game-frame-wrap'),iframe=document.getElementById('game-iframe');
-  if(isFullscreen){document.exitFullscreen?.();isFullscreen=false;}
+  if(isFullscreen){(document.exitFullscreen||document.webkitExitFullscreen||document.mozCancelFullScreen||document.msExitFullscreen).call(document);isFullscreen=false;}
+  gdEndSession(); // save playtime before unloading
   wrap.style.transition='opacity .28s ease';wrap.style.opacity='0';
-  setTimeout(()=>{wrap.classList.remove('active');wrap.style.opacity='';wrap.style.transition='';iframe.src='about:blank';hideGameControls();},280);
+  setTimeout(()=>{
+    wrap.classList.remove('active');wrap.style.opacity='';wrap.style.transition='';
+    iframe.src='about:blank';
+    hideGameControls();
+    renderGames(); // refresh playtime badges
+  },280);
 }
 function minimizeHud(){document.getElementById('hud-wrap').classList.add('minimized');setTimeout(()=>document.getElementById('hud-tab').classList.add('visible'),180);}
 function restoreHud(){document.getElementById('hud-tab').classList.remove('visible');setTimeout(()=>document.getElementById('hud-wrap').classList.remove('minimized'),60);}
@@ -946,7 +1221,20 @@ function restoreHud(){document.getElementById('hud-tab').classList.remove('visib
 function renderLibraryPanel(){
   const grid=document.getElementById('libPanelGrid');if(!grid)return;
   if(!state.library?.length){grid.innerHTML='<div class="lib-empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg><p>No games saved yet.<br>Hover a game card and click the heart.</p></div>';return;}
-  grid.innerHTML=state.library.map((l,i)=>`<div class="lib-panel-card holo-panel"><div style="overflow:hidden;border-radius:14px 14px 0 0;">${l.image?`<img src="${l.image}" alt="${l.title}" onerror="this.style.display='none'" onclick="clickGame(${l.idx})" style="width:100%;aspect-ratio:1;object-fit:cover;display:block;">`:''}</div><div class="lib-panel-card-foot"><div class="lib-panel-card-title" onclick="clickGame(${l.idx})">${l.title}</div><button class="lib-panel-remove" onclick="removeFromLib(${i})">✕</button></div></div>`).join('');
+  grid.innerHTML=state.library.map((l,i)=>{
+    const gd=gdGet(l.idx);
+    const badge=gd&&gd.totalSecs?`<span class="lib-playtime-badge">⏱ ${gdFormatTime(gd.totalSecs)}</span>`:'';
+    return `<div class="lib-panel-card holo-panel">
+      <div style="overflow:hidden;border-radius:14px 14px 0 0;">${l.image?`<img src="${l.image}" alt="${l.title}" onerror="this.style.display='none'" onclick="clickGame(${l.idx})" style="width:100%;aspect-ratio:1;object-fit:cover;display:block;">`:''}</div>
+      <div class="lib-panel-card-foot">
+        <div style="flex:1;min-width:0;">
+          <div class="lib-panel-card-title" onclick="clickGame(${l.idx})">${l.title}</div>
+          ${badge?`<div style="margin-top:3px;">${badge}</div>`:''}
+        </div>
+        <button class="lib-panel-remove" onclick="removeFromLib(${i})">✕</button>
+      </div>
+    </div>`;
+  }).join('');
 }
 function removeFromLib(i){state.library.splice(i,1);persist();renderLibraryPanel();renderLibrary();renderGames();showToast('Removed from library');}
 
@@ -960,6 +1248,29 @@ function renderAccount(){
   const avatar=document.getElementById('acctAvatar'),name=document.getElementById('acctName');
   if(state.username){form.style.display='none';logged.classList.add('show');name.textContent=state.username;avatar.textContent=state.username[0].toUpperCase();}
   else{form.style.display='';logged.classList.remove('show');avatar.textContent='?';}
+  renderAccountStats();
+}
+function renderAccountStats(){
+  const all=gdAllStats();
+  const totalSecs=all.reduce((s,r)=>s+(r.totalSecs||0),0);
+  const gamesPlayed=all.length;
+  const tv=document.getElementById('statTotalTime');
+  const gv=document.getElementById('statGamesPlayed');
+  if(tv) tv.textContent=gdFormatTime(totalSecs)||'0m';
+  if(gv) gv.textContent=gamesPlayed;
+
+  const recent=document.getElementById('acctRecentGames');
+  if(!recent) return;
+  if(!all.length){ recent.innerHTML='<div style="font-size:12px;color:var(--muted);padding:8px 0;">No games played yet.</div>'; return; }
+  recent.innerHTML=all.slice(0,6).map(r=>`
+    <div class="recent-game-row" onclick="clickGame(${r.idx})">
+      ${r.game.image?`<img class="recent-game-thumb" src="${r.game.image}" onerror="this.style.display='none'" alt="">`:'<div class="recent-game-thumb" style="background:var(--bg4);border-radius:8px;"></div>'}
+      <div class="recent-game-info">
+        <div class="recent-game-title">${r.game.title}</div>
+        <div class="recent-game-meta">${r.playCount} session${r.playCount!==1?'s':''} · ${gdFormatDate(r.lastPlayed)}</div>
+      </div>
+      <div class="recent-game-time">${gdFormatTime(r.totalSecs)}</div>
+    </div>`).join('');
 }
 function acctSave(){const v=document.getElementById('acctUsername').value.trim();if(!v)return showToast('Enter a username first');state.username=v;persist();renderAccount();showToast(`Saved as ${v}!`);}
 function acctLogout(){state.username=null;persist();renderAccount();}
@@ -998,18 +1309,14 @@ function switchTab(tab){
 }
 document.querySelectorAll('.hud-btn[data-tab],.hud-icon-btn[data-tab]').forEach(b=>{b.addEventListener('click',()=>switchTab(b.dataset.tab));});
 
-function proxyKey(e){if(e.key==='Enter')goProxy();}
-function goProxy(){
-  let url=document.getElementById('proxyInput').value.trim();if(!url)return;
-  if(!url.startsWith('http'))url='https://'+url;
-  document.getElementById('proxyWrap').innerHTML=`<iframe src="${url}" style="width:100%;height:100%;border:none;" sandbox="allow-scripts allow-same-origin allow-forms"></iframe>`;
-}
+// Save session if user closes tab/navigates away mid-game
+window.addEventListener('beforeunload',()=>gdEndSession());
+
 function homeSearchKey(e){
   if(e.key!=='Enter')return;
   const v=document.getElementById('homeSearch').value.trim();if(!v)return;
   const url=v.includes('.')&&!v.includes(' ')?(v.startsWith('http')?v:'https://'+v):`https://www.google.com/search?q=${encodeURIComponent(v)}`;
-  if(state.experience==='full'){switchTab('proxy');document.getElementById('proxyInput').value=url;goProxy();}
-  else window.open(url,'_blank');
+  window.open(url,'_blank');
 }
 
 let listeningPanic=false;
@@ -1029,7 +1336,7 @@ function tickOnline(){
 }
 setInterval(tickOnline,6000);
 
-let selectedTheme='default',selectedExp='games';
+let selectedTheme='default';
 function renderObThemeGrid(){
   const g=document.getElementById('ob-theme-grid');if(!g)return;
   g.innerHTML=Object.entries(THEMES).map(([k,t])=>
@@ -1037,12 +1344,10 @@ function renderObThemeGrid(){
   ).join('');
 }
 function pickObTheme(k){selectedTheme=k;applyTheme(k);renderObThemeGrid();}
-function selectExp(mode){selectedExp=mode;document.getElementById('exp-full').classList.toggle('sel',mode==='full');document.getElementById('exp-games').classList.toggle('sel',mode==='games');}
 function finishOnboarding(skip=false){
   if(!skip){const u=document.getElementById('ob-username').value.trim();if(u)state.username=u;}
-  state.experience=selectedExp||'games';state.onboarded=true;
+  state.onboarded=true;
   applyTheme(selectedTheme);persist();
-  if(state.experience==='full')document.getElementById('navProxy').style.display='';
   document.getElementById('onboarding').classList.add('hide');
   setTimeout(()=>document.getElementById('wn-modal').classList.add('show'),500);
 }
@@ -1060,10 +1365,8 @@ function boot(){
   if(typeof state.bgEffect==='number'&&state.bgEffect!==currentBg)switchBg(state.bgEffect);
   document.getElementById('panicDisp').textContent=state.panicKey;
   document.getElementById('panicUrlInput').value=state.panicUrl;
-  document.getElementById('infoExp').textContent=state.experience==='full'?'Games & Proxy':'Games Only';
   document.getElementById('infoTheme').textContent=THEMES[state.theme]?.name||state.theme;
   if(state.onboarded){
-    if(state.experience==='full')document.getElementById('navProxy').style.display='';
     document.getElementById('onboarding').classList.add('hide');
   } else {renderObThemeGrid();}
   tickOnline();initGames();
