@@ -3,13 +3,20 @@
    Scans ZephrECS/Synapse-games on GitHub,
    finds every folder, grabs the .html + image,
    and returns a GAMES array ready for Synapse.
+
+   Rate limit note:
+   GitHub allows 60 unauthenticated API requests/hour.
+   Each scan costs 1 (root) + N (folders) requests.
+   Cache TTL is set to 1 minute so repeated page loads
+   don't burn through the limit, but new games still
+   appear quickly.
 ════════════════════════════════════════════════════ */
 
 const REPO_OWNER  = 'ZephrECS';
 const REPO_NAME   = 'Synapse-games';
 const BRANCH      = 'main';
 const CACHE_KEY   = 'synapse_games_cache';
-const CACHE_TTL   = 60 * 60 * 1000; // 1 hour in ms
+const CACHE_TTL   = 60 * 1000; // 1 minute in ms
 
 const API_BASE    = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents`;
 const RAW_BASE    = `https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/${BRANCH}`;
@@ -22,7 +29,7 @@ const GAME_EXTS   = ['.html', '.htm', '.txt'];
 
 function toTitleCase(str) {
   return str
-    .replace(/[-_]/g, ' ')           // dashes/underscores → spaces
+    .replace(/[-_]/g, ' ')
     .replace(/\b\w/g, c => c.toUpperCase());
 }
 
@@ -48,7 +55,7 @@ function loadCache() {
     const raw = localStorage.getItem(CACHE_KEY);
     if (!raw) return null;
     const { timestamp, games } = JSON.parse(raw);
-    if (Date.now() - timestamp > CACHE_TTL) return null;
+    if (Date.now() - timestamp > CACHE_TTL) return null; // expired after 1 min
     return games;
   } catch (e) {
     return null;
@@ -64,14 +71,32 @@ function saveCache(games) {
   } catch (e) {}
 }
 
+function clearCache() {
+  localStorage.removeItem(CACHE_KEY);
+}
+
+/** Returns how many seconds until the cache expires, or 0 if already expired. */
+function cacheSecondsRemaining() {
+  try {
+    const raw = localStorage.getItem(CACHE_KEY);
+    if (!raw) return 0;
+    const { timestamp } = JSON.parse(raw);
+    const remaining = CACHE_TTL - (Date.now() - timestamp);
+    return remaining > 0 ? Math.ceil(remaining / 1000) : 0;
+  } catch (e) {
+    return 0;
+  }
+}
+
 
 /* ── Main scanner ─────────────────────────────────── */
 
 async function scanRepo(onProgress) {
-  // Return cached result if fresh
+  // Serve from cache if still fresh (within 1 minute)
   const cached = loadCache();
   if (cached) {
-    onProgress?.('Loaded from cache', 100);
+    const secs = cacheSecondsRemaining();
+    onProgress?.(`Loaded from cache — refreshes in ${secs}s`, 100);
     return cached;
   }
 
@@ -87,47 +112,54 @@ async function scanRepo(onProgress) {
     throw new Error('No game folders found in repository root.');
   }
 
-  const games  = [];
-  const total  = folders.length;
+  // Fetch all folder contents in parallel for speed
+  onProgress?.('Fetching game folders…', 15);
 
-  for (let i = 0; i < folders.length; i++) {
-    const folder = folders[i];
-    onProgress?.(`Scanning ${folder.name}…`, Math.round(10 + (i / total) * 85));
+  const folderResults = await Promise.allSettled(
+    folders.map(folder =>
+      fetchJSON(`${API_BASE}/${encodeURIComponent(folder.name)}`)
+        .then(contents => ({ folder, contents }))
+    )
+  );
 
-    try {
-      // Fetch folder contents
-      const contents = await fetchJSON(`${API_BASE}/${encodeURIComponent(folder.name)}`);
+  const games = [];
+  const total = folderResults.length;
 
-      // Find first image and first game file
-      const imageFile = contents.find(f => f.type === 'file' && isImage(f.name));
-      const gameFile  = contents.find(f => f.type === 'file' && isGame(f.name));
+  for (let i = 0; i < folderResults.length; i++) {
+    const result = folderResults[i];
+    onProgress?.('Processing games…', Math.round(20 + (i / total) * 70));
 
-      // Skip folders with no game file
-      if (!gameFile) continue;
-
-      // Check for optional meta.json
-      const metaFile = contents.find(f => f.name === 'meta.json');
-      let meta = {};
-      if (metaFile) {
-        try {
-          const metaRes = await fetch(`${RAW_BASE}/${encodeURIComponent(folder.name)}/meta.json`);
-          if (metaRes.ok) meta = await metaRes.json();
-        } catch (e) {}
-      }
-
-      games.push({
-        title: meta.title || toTitleCase(folder.name),
-        image: imageFile
-          ? `${RAW_BASE}/${encodeURIComponent(folder.name)}/${encodeURIComponent(imageFile.name)}`
-          : null,
-        url:   `${RAW_BASE}/${encodeURIComponent(folder.name)}/${encodeURIComponent(gameFile.name)}`,
-        cat:   meta.cat  || 'all',
-        tag:   meta.tag  || null,
-      });
-
-    } catch (e) {
-      console.warn(`Skipped folder "${folder.name}":`, e.message);
+    if (result.status === 'rejected') {
+      console.warn('Skipped folder (fetch failed):', result.reason);
+      continue;
     }
+
+    const { folder, contents } = result.value;
+
+    const imageFile = contents.find(f => f.type === 'file' && isImage(f.name));
+    const gameFile  = contents.find(f => f.type === 'file' && isGame(f.name));
+
+    if (!gameFile) continue;
+
+    // Check for optional meta.json
+    let meta = {};
+    const metaFile = contents.find(f => f.name === 'meta.json');
+    if (metaFile) {
+      try {
+        const metaRes = await fetch(`${RAW_BASE}/${encodeURIComponent(folder.name)}/meta.json`);
+        if (metaRes.ok) meta = await metaRes.json();
+      } catch (e) {}
+    }
+
+    games.push({
+      title: meta.title || toTitleCase(folder.name),
+      image: imageFile
+        ? `${RAW_BASE}/${encodeURIComponent(folder.name)}/${encodeURIComponent(imageFile.name)}`
+        : null,
+      url:   `${RAW_BASE}/${encodeURIComponent(folder.name)}/${encodeURIComponent(gameFile.name)}`,
+      cat:   meta.cat || 'all',
+      tag:   meta.tag || null,
+    });
   }
 
   onProgress?.('Done!', 100);
