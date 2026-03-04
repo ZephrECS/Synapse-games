@@ -433,6 +433,29 @@ let GAMES=[];
 let activeCat='all', activeSearch='';
 const GAMES_JS_URL='https://raw.githubusercontent.com/ZephrECS/Synapse-games/refs/heads/main/games.js';
 
+// Rewrite Google Apps Script macro URLs to raw jsdelivr CDN equivalents
+// e.g. https://script.google.com/macros/s/.../exec?game=342.html
+//   -> https://cdn.jsdelivr.net/gh/NoahsAmazingTutoringHelp/Noahs-Calculus-Tutor@master/games/342.html
+const GAME_URL_OVERRIDES = {
+  'cloverpit': 'https://raw.githubusercontent.com/ZephrECS/Synapse-games/refs/heads/main/CloverPit/Clover%20Pit.html',
+};
+function rewriteGameUrl(g){
+  if(!g.url) return g;
+  // Check title-based overrides first
+  const titleKey = (g.title||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+  if(GAME_URL_OVERRIDES[titleKey]) return {...g, url: GAME_URL_OVERRIDES[titleKey]};
+  try{
+    const u=new URL(g.url);
+    if(u.hostname==='script.google.com' && u.pathname.includes('/macros/')){
+      const game=u.searchParams.get('game');
+      if(game){
+        return {...g, url:`https://cdn.jsdelivr.net/gh/NoahsAmazingTutoringHelp/Noahs-Calculus-Tutor@master/games/${game}`};
+      }
+    }
+  }catch(e){}
+  return g;
+}
+
 async function loadGames(){
   try{
     const res=await fetch(GAMES_JS_URL);
@@ -441,7 +464,7 @@ async function loadGames(){
     // Extract the games array safely
     const fn=new Function(src+'\n; return typeof games!=="undefined"?games:[];');
     const loaded=fn();
-    if(Array.isArray(loaded)&&loaded.length>0){GAMES=loaded;}
+    if(Array.isArray(loaded)&&loaded.length>0){GAMES=loaded.map(rewriteGameUrl);}
     else throw new Error('empty');
   }catch(e){
     console.warn('Remote games.js failed, using fallback:',e);
@@ -562,8 +585,11 @@ async function launchGameNewTab(idx,url,title){
       else{t.document.open();t.document.write(code);t.document.close();}
     }
   }catch(e){
+    // Fetch failed (likely CORS) — fall back to opening the URL directly
     ov.classList.add('out');setTimeout(()=>ov.remove(),280);
-    showToast('&#9888; Failed to load game');
+    try{localStorage.setItem('syn_newtab_open',JSON.stringify({idx,opened:Date.now()}));}catch(e2){}
+    const t=window.open(url,'_blank');
+    if(!t)showToast('&#9888; Pop-up blocked — please allow pop-ups for this site.');
   }
 }
 
