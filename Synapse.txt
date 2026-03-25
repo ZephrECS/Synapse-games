@@ -128,7 +128,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .gc-save-btn.saved:hover{background:rgba(34,197,94,.35);}
 @keyframes saveRipple{0%{box-shadow:0 0 0 0 rgba(124,107,255,.7);}100%{box-shadow:0 0 0 16px rgba(124,107,255,0);}}
 .gc-save-btn.ripple{animation:saveRipple .5s var(--ease);}
-/* New tab badge */
 .gc-newtab-badge{position:absolute;top:9px;left:9px;padding:3px 8px;border-radius:99px;background:rgba(0,0,0,0.55);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.10);font-size:9px;font-family:var(--mono);color:rgba(255,255,255,0.55);pointer-events:none;z-index:6;opacity:0;transform:translateY(-3px);transition:opacity .22s var(--ease),transform .22s var(--ease);}
 .game-card:hover .gc-newtab-badge{opacity:1;transform:translateY(0);}
 #panel-library{padding:calc(var(--hud-h) + 36px) 44px 80px;}
@@ -207,7 +206,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .toast{position:fixed;bottom:60px;right:20px;z-index:9000;border-radius:12px;padding:10px 18px;font-size:12px;color:var(--text);transform:translateY(16px);opacity:0;transition:all .3s var(--spring);pointer-events:none;font-weight:500;}
 .toast.show{opacity:1;transform:translateY(0);}
 .games-loading{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:80px 0;color:var(--muted);grid-column:1/-1;}
-/* GAME SEARCH */
 .games-search-wrap{position:relative;width:100%;max-width:440px;margin-bottom:14px;}
 .games-search-wrap input{width:100%;padding:10px 16px 10px 42px;background:rgba(255,255,255,0.04);border:1.5px solid rgba(255,255,255,0.08);border-radius:12px;color:var(--text);font-size:13px;font-family:var(--font);outline:none;transition:border .22s,background .22s,box-shadow .22s;backdrop-filter:blur(16px);}
 .games-search-wrap input:focus{border-color:rgba(124,107,255,0.5);background:rgba(255,255,255,0.06);box-shadow:0 0 0 3px rgba(124,107,255,.1);}
@@ -308,7 +306,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
       <input type="text" id="gamesSearch" placeholder="Search games..." oninput="onGamesSearch(this.value)" onkeydown="if(event.key==='Escape'){clearGamesSearch();}">
       <button class="games-search-clear" id="gamesSearchClear" onclick="clearGamesSearch()" title="Clear">✕</button>
     </div>
-    <div class="filter-row" id="filterRow"></div>
     <div class="games-grid" id="gamesGrid">
       <div class="games-loading"><div class="games-loading-ring"></div><p>Fetching games...</p></div>
     </div>
@@ -428,81 +425,68 @@ function gdAllStats(){const out=[];GAMES.forEach((g,i)=>{const d=gdGet(i);if(d&&
 const THEMES={default:{name:'Default',color:'#7c6bff','--accent':'#7c6bff','--accent2':'#a78bfa','--accent3':'#c4b5fd'},midnight:{name:'Midnight',color:'#4f8ef7','--accent':'#4f8ef7','--accent2':'#93c5fd','--accent3':'#bfdbfe'},forest:{name:'Forest',color:'#22c55e','--accent':'#22c55e','--accent2':'#86efac','--accent3':'#bbf7d0'},crimson:{name:'Crimson',color:'#ef4444','--accent':'#ef4444','--accent2':'#fca5a5','--accent3':'#fecaca'},sunset:{name:'Sunset',color:'#f97316','--accent':'#f97316','--accent2':'#fdba74','--accent3':'#fed7aa'},ocean:{name:'Ocean',color:'#06b6d4','--accent':'#06b6d4','--accent2':'#67e8f9','--accent3':'#a5f3fc'},lavender:{name:'Lavender',color:'#c084fc','--accent':'#c084fc','--accent2':'#e9d5ff','--accent3':'#f3e8ff'},mono:{name:'Mono',color:'#9ca3af','--accent':'#9ca3af','--accent2':'#e5e7eb','--accent3':'#f9fafb'}};
 function applyTheme(key){const t=THEMES[key]||THEMES.default;Object.entries(t).forEach(([p,v])=>{if(p.startsWith('--'))document.documentElement.style.setProperty(p,v);});state.theme=key;persist();renderThemeGrid();renderObThemeGrid();}
 
-/* GAMES — loaded live from GitHub */
+/* GAMES — loaded live from multiple sources */
 let GAMES=[];
-let activeCat='all', activeSearch='';
+let activeSearch='';
 const GAMES_JS_URL='https://raw.githubusercontent.com/ZephrECS/Synapse-games/refs/heads/main/games.js';
+const CHERRI_BASE='https://schoolhacksrus.github.io/cherri';
+const CHERRI_JSON_URL='https://raw.githubusercontent.com/SchoolHacksRUs/cherri/refs/heads/master/assets/json/gn-math.json';
 
-// Rewrite Google Apps Script macro URLs to raw jsdelivr CDN equivalents
-// e.g. https://script.google.com/macros/s/.../exec?game=342.html
-//   -> https://cdn.jsdelivr.net/gh/NoahsAmazingTutoringHelp/Noahs-Calculus-Tutor@master/games/342.html
 const GAME_URL_OVERRIDES = {
   'cloverpit': 'https://raw.githubusercontent.com/ZephrECS/Synapse-games/refs/heads/main/CloverPit/Clover%20Pit.html',
 };
 function rewriteGameUrl(g){
   if(!g.url) return g;
-  // Check title-based overrides first
-  const titleKey = (g.title||'').toLowerCase().replace(/[^a-z0-9]/g,'');
-  if(GAME_URL_OVERRIDES[titleKey]) return {...g, url: GAME_URL_OVERRIDES[titleKey]};
+  const titleKey=(g.title||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+  if(GAME_URL_OVERRIDES[titleKey]) return {...g,url:GAME_URL_OVERRIDES[titleKey]};
   try{
     const u=new URL(g.url);
-    if(u.hostname==='script.google.com' && u.pathname.includes('/macros/')){
+    if(u.hostname==='script.google.com'&&u.pathname.includes('/macros/')){
       const game=u.searchParams.get('game');
-      if(game){
-        return {...g, url:`https://cdn.jsdelivr.net/gh/NoahsAmazingTutoringHelp/Noahs-Calculus-Tutor@master/games/${game}`};
-      }
+      if(game) return {...g,url:`https://cdn.jsdelivr.net/gh/NoahsAmazingTutoringHelp/Noahs-Calculus-Tutor@master/games/${game}`};
     }
   }catch(e){}
   return g;
 }
 
 async function loadGames(){
-  try{
-    const res=await fetch(GAMES_JS_URL);
-    if(!res.ok)throw new Error('fetch failed');
-    const src=await res.text();
-    // Extract the games array safely
-    const fn=new Function(src+'\n; return typeof games!=="undefined"?games:[];');
-    const loaded=fn();
-    if(Array.isArray(loaded)&&loaded.length>0){GAMES=loaded.map(rewriteGameUrl);}
-    else throw new Error('empty');
-  }catch(e){
-    console.warn('Remote games.js failed, using fallback:',e);
-    GAMES=[
-      {title:'A Bite At Freddies',url:'https://raw.githubusercontent.com/ZephrECS/Synapse-games/refs/heads/main/A%20Bite%20At%20Freddies/ABAF.html',image:'https://raw.githubusercontent.com/ZephrECS/Synapse-games/refs/heads/main/A%20Bite%20At%20Freddies/New%20Project%20(1).png',cat:'horror',tag:'FNAF'},
-      {title:'Balatro',url:'https://raw.githubusercontent.com/ZephrECS/Synapse-games/refs/heads/main/Balatro/Balatro.HTML',image:'https://raw.githubusercontent.com/ZephrECS/Synapse-games/refs/heads/main/Balatro/logo_Balatro.jpg',cat:'cards'},
-      {title:'Undertale',url:'https://raw.githubusercontent.com/ZephrECS/Synapse-games/refs/heads/main/Undertale/undertale.html',image:'https://raw.githubusercontent.com/ZephrECS/Synapse-games/refs/heads/main/Undertale/MV5BMWI3ZTkxZjktYWU3NC00OGQ1LWFlNzgtYzIwMWI4NDg2YTU0XkEyXkFqcGc%40._V1_FMjpg_UX1000_.jpg',cat:'rpg'},
-    ];
-  }
+  const results=await Promise.allSettled([
+    fetch(GAMES_JS_URL).then(r=>r.ok?r.text():Promise.reject()).then(src=>{
+      const fn=new Function(src+'\n; return typeof games!=="undefined"?games:[];');
+      const loaded=fn();
+      return Array.isArray(loaded)&&loaded.length?loaded.map(rewriteGameUrl):[];
+    }),
+    fetch(CHERRI_JSON_URL).then(r=>r.ok?r.json():Promise.reject()).then(list=>
+      list.map(g=>({title:g.name,url:g.direct?g.url:CHERRI_BASE+g.url,image:CHERRI_BASE+g.img,cat:g.cat||'arcade'}))
+    )
+  ]);
+  const combined=[...(results[0].status==='fulfilled'?results[0].value:[]),...(results[1].status==='fulfilled'?results[1].value:[])];
+  const seen=new Set();
+  GAMES=combined.filter(g=>{const k=g.title.toLowerCase().trim();if(seen.has(k))return false;seen.add(k);return true;});
+  if(!GAMES.length)GAMES=[{title:'A Bite At Freddies',url:'https://raw.githubusercontent.com/ZephrECS/Synapse-games/refs/heads/main/A%20Bite%20At%20Freddies/ABAF.html',image:'https://raw.githubusercontent.com/ZephrECS/Synapse-games/refs/heads/main/A%20Bite%20At%20Freddies/New%20Project%20(1).png',cat:'horror',tag:'FNAF'}];
   initGames();
 }
 
 function initGames(){
-  const cats=['all',...new Set(GAMES.map(g=>g.cat).filter(Boolean))];
-  renderCategoryChips(cats);renderGames();
+  renderGames();
   document.getElementById('gamesPanelSub').textContent=GAMES.length+' games';
   document.getElementById('infoGames').textContent=GAMES.length+' games';
-}
-
-function renderCategoryChips(cats){
-  document.getElementById('filterRow').innerHTML=cats.map(c=>`<button class="chip ${activeCat===c?'active':''}" onclick="filterCat('${c}')">${c==='all'?'All':c.charAt(0).toUpperCase()+c.slice(1)}</button>`).join('');
 }
 
 function isInLibrary(idx){return state.library.some(l=>l.idx===idx);}
 
 function renderGames(){
-  let list=activeCat==='all'?GAMES:GAMES.filter(g=>g.cat===activeCat);
+  let list=GAMES;
   if(activeSearch){
     const q=activeSearch.toLowerCase();
     list=list.filter(g=>g.title.toLowerCase().includes(q)||(g.cat&&g.cat.toLowerCase().includes(q))||(g.tag&&g.tag.toLowerCase().includes(q)));
   }
-  // Update subtitle
   const sub=document.getElementById('gamesPanelSub');
   if(sub){
-    if(activeSearch) sub.textContent=`${list.length} result${list.length!==1?'s':''} for "${activeSearch}"`;
+    if(activeSearch)sub.textContent=`${list.length} result${list.length!==1?'s':''} for "${activeSearch}"`;
     else sub.textContent=`${GAMES.length} games`;
   }
-  if(!list.length){document.getElementById('gamesGrid').innerHTML=`<div style="grid-column:1/-1;color:var(--muted);text-align:center;padding:60px 0;font-size:13px;">${activeSearch?`No games match "<strong style="color:var(--muted2)">${activeSearch}</strong>"` : 'No games in this category.'}</div>`;return;}
+  if(!list.length){document.getElementById('gamesGrid').innerHTML=`<div style="grid-column:1/-1;color:var(--muted);text-align:center;padding:60px 0;font-size:13px;">${activeSearch?`No games match "<strong style="color:var(--muted2)">${activeSearch}</strong>"`:'No games available.'}</div>`;return;}
   document.getElementById('gamesGrid').innerHTML=list.map(g=>{
     const idx=GAMES.indexOf(g),saved=isInLibrary(idx);
     const gd=gdGet(idx),timeLabel=gd&&gd.totalSecs?gdFormatTime(gd.totalSecs):'',hasTime=!!timeLabel;
@@ -521,7 +505,7 @@ function renderGames(){
 function onGamesSearch(val){
   activeSearch=val.trim();
   const clearBtn=document.getElementById('gamesSearchClear');
-  if(clearBtn) clearBtn.classList.toggle('visible', activeSearch.length>0);
+  if(clearBtn)clearBtn.classList.toggle('visible',activeSearch.length>0);
   renderGames();
 }
 function clearGamesSearch(){
@@ -529,12 +513,7 @@ function clearGamesSearch(){
   const inp=document.getElementById('gamesSearch');
   if(inp){inp.value='';inp.focus();}
   const clearBtn=document.getElementById('gamesSearchClear');
-  if(clearBtn) clearBtn.classList.remove('visible');
-  renderGames();
-}
-function filterCat(cat){
-  activeCat=cat;
-  document.querySelectorAll('#filterRow .chip').forEach(c=>c.classList.toggle('active',c.textContent.toLowerCase()===cat||(cat==='all'&&c.textContent==='All')));
+  if(clearBtn)clearBtn.classList.remove('visible');
   renderGames();
 }
 
@@ -569,7 +548,6 @@ async function launchGameNewTab(idx,url,title){
     const isBareUrl=/^https?:\/\/\S+$/.test(trimmed);
     await new Promise(r=>setTimeout(r,480));
     ov.classList.add('out');setTimeout(()=>ov.remove(),280);
-    // Record that we opened this game (for playtime tracking)
     try{localStorage.setItem('syn_newtab_open',JSON.stringify({idx,opened:Date.now()}));}catch(e){}
     if(isBareUrl){
       const t=window.open(trimmed,'_blank');
@@ -585,7 +563,6 @@ async function launchGameNewTab(idx,url,title){
       else{t.document.open();t.document.write(code);t.document.close();}
     }
   }catch(e){
-    // Fetch failed (likely CORS) — fall back to opening the URL directly
     ov.classList.add('out');setTimeout(()=>ov.remove(),280);
     try{localStorage.setItem('syn_newtab_open',JSON.stringify({idx,opened:Date.now()}));}catch(e2){}
     const t=window.open(url,'_blank');
@@ -598,7 +575,7 @@ function buildStorageShim(idx){
   return `<script>(function(){var NS=${JSON.stringify(ns)};function shimStorage(){var store={getItem:function(k){return localStorage.getItem(NS+k);},setItem:function(k,v){try{localStorage.setItem(NS+k,String(v));}catch(e){}},removeItem:function(k){localStorage.removeItem(NS+k);},clear:function(){Object.keys(localStorage).filter(function(k){return k.indexOf(NS)===0;}).forEach(function(k){localStorage.removeItem(k);});},key:function(n){var keys=Object.keys(localStorage).filter(function(k){return k.indexOf(NS)===0;});return keys[n]?keys[n].slice(NS.length):null;},get length(){return Object.keys(localStorage).filter(function(k){return k.indexOf(NS)===0;}).length;}};try{return new Proxy(store,{get:function(t,p){if(p in t)return typeof t[p]==='function'?t[p].bind(t):t[p];return localStorage.getItem(NS+p);},set:function(t,p,v){if(p in t){t[p]=v;return true;}try{localStorage.setItem(NS+p,String(v));}catch(e){}return true;},deleteProperty:function(t,p){localStorage.removeItem(NS+p);return true;}});}catch(e){return store;}}try{Object.defineProperty(window,'localStorage',{get:function(){return shimStorage();},configurable:true});}catch(e){}try{Object.defineProperty(window,'sessionStorage',{get:function(){return shimStorage();},configurable:true});}catch(e){}})();<\/script>`;
 }
 
-/* Track playtime: when user returns to this tab after opening a game */
+/* Track playtime */
 document.addEventListener('visibilitychange',()=>{
   if(document.visibilityState==='visible'){
     try{
