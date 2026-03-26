@@ -430,11 +430,13 @@ let GAMES=[];
 let activeSearch='';
 const GAMES_JS_URL='https://raw.githubusercontent.com/ZephrECS/Synapse-games/refs/heads/main/games.js';
 const CHERRI_BASE='https://schoolhacksrus.github.io/cherri';
+const CHERRI_RAW='https://raw.githubusercontent.com/SchoolHacksRUs/cherri/master';
 const CHERRI_JSON_URL='https://raw.githubusercontent.com/SchoolHacksRUs/cherri/refs/heads/master/assets/json/gn-math.json';
 
 const GAME_URL_OVERRIDES = {
   'cloverpit': 'https://raw.githubusercontent.com/ZephrECS/Synapse-games/refs/heads/main/CloverPit/Clover%20Pit.html',
 };
+
 function rewriteGameUrl(g){
   if(!g.url) return g;
   const titleKey=(g.title||'').toLowerCase().replace(/[^a-z0-9]/g,'');
@@ -449,6 +451,18 @@ function rewriteGameUrl(g){
   return g;
 }
 
+function cherriUrlToRaw(url){
+  if(url.includes('raw.githubusercontent.com')||url.includes('cdn.jsdelivr.net')) return url;
+  try{
+    const u = new URL(url);
+    if(u.hostname === 'schoolhacksrus.github.io'){
+      const repoPath = u.pathname.replace(/^\/cherri\//,'/');
+      return `https://raw.githubusercontent.com/SchoolHacksRUs/cherri/master${repoPath}`;
+    }
+  }catch(e){}
+  return url;
+}
+
 async function loadGames(){
   const results=await Promise.allSettled([
     fetch(GAMES_JS_URL).then(r=>r.ok?r.text():Promise.reject()).then(src=>{
@@ -457,7 +471,13 @@ async function loadGames(){
       return Array.isArray(loaded)&&loaded.length?loaded.map(rewriteGameUrl):[];
     }),
     fetch(CHERRI_JSON_URL).then(r=>r.ok?r.json():Promise.reject()).then(list=>
-      list.map(g=>({title:g.name,url:g.direct?g.url:CHERRI_BASE+g.url,image:CHERRI_BASE+g.img,cat:g.cat||'arcade'}))
+      list.map(g=>{
+        const rawUrl = cherriUrlToRaw(g.direct ? g.url : CHERRI_BASE + g.url);
+        // ✅ FIX: Use raw.githubusercontent.com for images instead of github.io
+        // github.io serves HTML pages for assets; raw.githubusercontent.com serves the actual bytes
+        const imageUrl = `${CHERRI_RAW}${g.img}`;
+        return {title:g.name, url:rawUrl, image:imageUrl, cat:g.cat||'arcade'};
+      })
     )
   ]);
   const combined=[...(results[0].status==='fulfilled'?results[0].value:[]),...(results[1].status==='fulfilled'?results[1].value:[])];
@@ -535,38 +555,54 @@ function cardToggleLib(idx,btn){
 
 function clickGame(idx){const g=GAMES[idx];if(g)launchGameNewTab(idx,g.url,g.title);}
 
-/* NEW TAB LAUNCHER */
 async function launchGameNewTab(idx,url,title){
   const ov=document.createElement('div');
   ov.className='game-launch-ov';
   ov.innerHTML=`<div class="launch-spinner-ring"></div><div class="launch-title">${title||'Loading...'}</div><div class="launch-sub">Opening in new tab</div>`;
   document.body.appendChild(ov);
+
+  const newTab = window.open('about:blank','_blank');
+  if(!newTab){
+    ov.classList.add('out');setTimeout(()=>ov.remove(),280);
+    showToast('&#9888; Pop-up blocked — please allow pop-ups for this site.');
+    return;
+  }
+
   try{
-    const res=await fetch(url);
-    let code=await res.text();
-    const trimmed=code.trim();
-    const isBareUrl=/^https?:\/\/\S+$/.test(trimmed);
+    const res = await fetch(url);
+    let code = await res.text();
+    const trimmed = code.trim();
+
     await new Promise(r=>setTimeout(r,480));
     ov.classList.add('out');setTimeout(()=>ov.remove(),280);
+
     try{localStorage.setItem('syn_newtab_open',JSON.stringify({idx,opened:Date.now()}));}catch(e){}
+
+    const isBareUrl = /^https?:\/\/\S+$/.test(trimmed);
     if(isBareUrl){
-      const t=window.open(trimmed,'_blank');
-      if(!t)showToast('&#9888; Pop-up blocked — please allow pop-ups for this site.');
-    }else{
-      const shim=buildStorageShim(idx);
-      if(/<head[\s>]/i.test(code)){code=code.replace(/(<head[^>]*>)/i,'$1\n'+shim);}
-      else if(/<html[\s>]/i.test(code)){code=code.replace(/(<html[^>]*>)/i,'$1\n'+shim);}
-      else{code=shim+'\n'+code;}
-      if(!/<html[\s>]/i.test(code)){code=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${title}</title><style>*{margin:0;padding:0;}body{background:#000;}</style></head><body>${code}</body></html>`;}
-      const t=window.open('about:blank','_blank');
-      if(!t){showToast('&#9888; Pop-up blocked — please allow pop-ups for this site.');}
-      else{t.document.open();t.document.write(code);t.document.close();}
+      newTab.location.href = trimmed;
+      return;
     }
+
+    const shim = buildStorageShim(idx);
+    if(/<head[\s>]/i.test(code)){
+      code = code.replace(/(<head[^>]*>)/i,'$1\n'+shim);
+    }else if(/<html[\s>]/i.test(code)){
+      code = code.replace(/(<html[^>]*>)/i,'$1\n'+shim);
+    }else{
+      code = shim+'\n'+code;
+    }
+    if(!/<html[\s>]/i.test(code)){
+      code=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${title}</title><style>*{margin:0;padding:0;}body{background:#000;}</style></head><body>${code}</body></html>`;
+    }
+    newTab.document.open();
+    newTab.document.write(code);
+    newTab.document.close();
+
   }catch(e){
     ov.classList.add('out');setTimeout(()=>ov.remove(),280);
     try{localStorage.setItem('syn_newtab_open',JSON.stringify({idx,opened:Date.now()}));}catch(e2){}
-    const t=window.open(url,'_blank');
-    if(!t)showToast('&#9888; Pop-up blocked — please allow pop-ups for this site.');
+    newTab.location.href = url;
   }
 }
 
