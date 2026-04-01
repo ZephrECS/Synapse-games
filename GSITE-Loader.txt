@@ -64,7 +64,7 @@ canvas#bg { position:fixed; inset:0; pointer-events:none; z-index:0; }
 </div>
 
 <script>
-const TARGET = 'https://script.google.com/macros/s/AKfycbwNHzRgWMxrY9IbpSVqwl5vtIG9vfAnxYqft6tTisgOLiM_2rGWzqbU5EBrAejDUyT8/exec';
+const TARGET = 'https://script.google.com/macros/s/AKfycbw12LV4VsuWWnx8R2youNO5AH0JqsXmIgMDn8FtQPZATgGOh6ubKXF2fnJ3iVL1kwZR/exec';
 
 function launch() {
   const ov = document.getElementById('launch-ov');
