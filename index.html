@@ -92,6 +92,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 #main{position:fixed;left:0;top:0;right:0;bottom:0;overflow:hidden;z-index:10;}
 .panel{position:absolute;inset:0;overflow-y:auto;padding:calc(var(--hud-h) + 36px) 44px 80px;opacity:0;pointer-events:none;transform:translateY(16px);transition:opacity .38s var(--ease),transform .38s var(--ease);will-change:opacity,transform;}
 .panel.active{opacity:1;pointer-events:all;transform:none;}
+#panel-casino{padding:0;overflow:hidden;}
+#casino-iframe{width:100%;height:100%;border:none;background:#000;}
 ::-webkit-scrollbar{width:4px;}
 ::-webkit-scrollbar-track{background:transparent;}
 ::-webkit-scrollbar-thumb{background:rgba(124,107,255,0.3);border-radius:99px;}
@@ -232,6 +234,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .recent-game-meta{font-size:10px;color:var(--muted2);font-family:var(--mono);margin-top:1px;}
 .recent-game-time{font-size:11px;color:var(--accent2);font-family:var(--mono);flex-shrink:0;}
 .lib-playtime-badge{font-size:9px;font-family:var(--mono);color:var(--accent2);background:rgba(124,107,255,0.12);border:1px solid rgba(124,107,255,0.2);border-radius:99px;padding:2px 7px;white-space:nowrap;}
+#casino-loading{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:var(--bg);z-index:5;}
 </style>
 </head>
 <body>
@@ -267,6 +270,9 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
       </button>
       <button class="hud-btn" data-tab="games">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="2" y="6" width="20" height="14" rx="3"/><path d="M6 13h4m-2-2v4"/><circle cx="16" cy="12" r=".8" fill="currentColor"/><circle cx="18" cy="14" r=".8" fill="currentColor"/></svg>Games
+      </button>
+      <button class="hud-btn" data-tab="casino">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 4h16v16H4z"/><circle cx="8" cy="8" r="1.5"/><circle cx="16" cy="8" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="8" cy="16" r="1.5"/><circle cx="16" cy="16" r="1.5"/></svg>Casino
       </button>
       <button class="hud-btn" data-tab="library">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>Library
@@ -309,6 +315,13 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
     <div class="games-grid" id="gamesGrid">
       <div class="games-loading"><div class="games-loading-ring"></div><p>Fetching games...</p></div>
     </div>
+  </div>
+  <div class="panel" id="panel-casino">
+    <div id="casino-loading">
+      <div class="games-loading-ring"></div>
+      <p style="color:var(--muted2);font-family:var(--mono);">Loading Casino...</p>
+    </div>
+    <iframe id="casino-iframe" style="display:none;" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-downloads"></iframe>
   </div>
   <div class="panel" id="panel-library">
     <div class="panel-title">My Library</div>
@@ -390,6 +403,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
     <div class="modal-item holo-panel" style="padding:14px 16px;"><div class="mi-title">&#8599; New Tab Game Launch <span class="mi-badge">NEW</span></div><div class="mi-desc">All games now open in a new tab for a full, uninterrupted experience. No more iframes!</div></div>
     <div class="modal-item holo-panel" style="padding:14px 16px;"><div class="mi-title">&#9729; Live Game List <span class="mi-badge">NEW</span></div><div class="mi-desc">Games load live from the Synapse GitHub repository — always up to date automatically.</div></div>
     <div class="modal-item holo-panel" style="padding:14px 16px;"><div class="mi-title">&#10024; Frosted Glass UI</div><div class="mi-desc">Clean backdrop-blur glass panels with true translucency and depth.</div></div>
+    <div class="modal-item holo-panel" style="padding:14px 16px;"><div class="mi-title">🎰 Casino <span class="mi-badge">NEW</span></div><div class="mi-desc">Full casino experience with games, loaded directly in Synapse.</div></div>
   </div>
 </div>
 <div id="bg-switcher"><span class="bg-btn-label">FX</span></div>
@@ -473,8 +487,6 @@ async function loadGames(){
     fetch(CHERRI_JSON_URL).then(r=>r.ok?r.json():Promise.reject()).then(list=>
       list.map(g=>{
         const rawUrl = cherriUrlToRaw(g.direct ? g.url : CHERRI_BASE + g.url);
-        // ✅ FIX: Use raw.githubusercontent.com for images instead of github.io
-        // github.io serves HTML pages for assets; raw.githubusercontent.com serves the actual bytes
         const imageUrl = `${CHERRI_RAW}${g.img}`;
         return {title:g.name, url:rawUrl, image:imageUrl, cat:g.cat||'arcade'};
       })
@@ -632,6 +644,107 @@ document.addEventListener('visibilitychange',()=>{
   }
 });
 
+/* CASINO LOADER */
+let casinoLoaded=false;
+const CASINO_URL='https://raw.githubusercontent.com/SchoolHacksRUs/casino/refs/heads/main/casino.txt';
+
+async function loadCasino(){
+  if(casinoLoaded)return;
+  const iframe=document.getElementById('casino-iframe');
+  const loading=document.getElementById('casino-loading');
+  
+  try{
+    const res=await fetch(CASINO_URL);
+    const html=await res.text();
+    
+    // Create a full HTML document with proper styling
+    const fullDoc=`<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Casino</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{
+  font-family:'Ubuntu',-apple-system,BlinkMacSystemFont,sans-serif;
+  background:linear-gradient(135deg,#0a0a12 0%,#10101a 100%);
+  color:#f0f0f8;
+  min-height:100vh;
+  padding:20px;
+}
+.casino-container{
+  max-width:1400px;
+  margin:0 auto;
+  padding:20px;
+}
+/* Make embedded content look nice */
+.casino-container img{max-width:100%;height:auto;}
+.casino-container iframe{width:100%;height:600px;border:none;border-radius:16px;}
+.casino-container button{
+  background:linear-gradient(135deg,#7c6bff,#5b4dd6);
+  border:none;
+  color:white;
+  padding:12px 24px;
+  border-radius:12px;
+  font-weight:600;
+  cursor:pointer;
+  transition:transform 0.2s,box-shadow 0.2s;
+}
+.casino-container button:hover{
+  transform:translateY(-2px);
+  box-shadow:0 8px 28px rgba(124,107,255,0.45);
+}
+h1,h2,h3{
+  background:linear-gradient(135deg,#fff,#c4b5fd);
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+}
+.game-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(200px,1fr));
+  gap:20px;
+  margin-top:20px;
+}
+.game-card{
+  background:rgba(255,255,255,0.05);
+  border:1px solid rgba(255,255,255,0.1);
+  border-radius:16px;
+  padding:20px;
+  text-align:center;
+  transition:transform 0.3s,border-color 0.3s;
+  cursor:pointer;
+}
+.game-card:hover{
+  transform:translateY(-5px);
+  border-color:#7c6bff;
+}
+</style>
+</head>
+<body>
+<div class="casino-container">
+${html}
+</div>
+</body>
+</html>`;
+    
+    iframe.srcdoc=fullDoc;
+    iframe.style.display='block';
+    loading.style.display='none';
+    casinoLoaded=true;
+  }catch(e){
+    console.error('Failed to load casino:',e);
+    loading.innerHTML=`<p style="color:var(--red);">Failed to load casino. <button onclick="retryCasino()" style="margin-top:10px;padding:8px 16px;background:var(--accent);border:none;border-radius:8px;color:white;cursor:pointer;">Retry</button></p>`;
+  }
+}
+
+function retryCasino(){
+  casinoLoaded=false;
+  const loading=document.getElementById('casino-loading');
+  loading.innerHTML='<div class="games-loading-ring"></div><p style="color:var(--muted2);font-family:var(--mono);">Loading Casino...</p>';
+  loadCasino();
+}
+
 /* LIBRARY */
 function renderLibraryPanel(){
   const grid=document.getElementById('libPanelGrid');if(!grid)return;
@@ -685,7 +798,10 @@ function switchTab(tab){
   document.querySelectorAll('.hud-btn[data-tab],.hud-icon-btn[data-tab]').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
   document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active',p.id==='panel-'+tab));
   if(tab==='games'){const inp=document.getElementById('gamesSearch');if(inp&&!activeSearch)inp.value='';}
-  if(tab==='settings')renderThemeGrid();if(tab==='account'){renderAccount();renderLibrary();}if(tab==='library')renderLibraryPanel();
+  if(tab==='settings')renderThemeGrid();
+  if(tab==='account'){renderAccount();renderLibrary();}
+  if(tab==='library')renderLibraryPanel();
+  if(tab==='casino'){loadCasino();}
 }
 document.querySelectorAll('.hud-btn[data-tab],.hud-icon-btn[data-tab]').forEach(b=>{b.addEventListener('click',()=>switchTab(b.dataset.tab));});
 function minimizeHud(){document.getElementById('hud-wrap').classList.add('minimized');setTimeout(()=>document.getElementById('hud-tab').classList.add('visible'),180);}
